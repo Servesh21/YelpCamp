@@ -1,5 +1,8 @@
 const express = require('express')
 const methodOverride = require('method-override')
+
+const ejsMate = require('ejs-mate');
+
 const app = express();
 const path=require('path');
 const mongoose = require('mongoose');
@@ -14,7 +17,10 @@ db.once("open",()=>{
 
 })
 
+
 app.set('view engine','ejs');
+
+app.engine('ejs',ejsMate)
 app.set('views',path.join(__dirname,'views'))
 app.use(express.urlencoded({
     extended: true
@@ -38,6 +44,7 @@ app.get('/campgrounds/new',(req,res)=>{
 
 // To update database 
 app.post('/campgrounds',async (req,res)=>{
+    
     const campground = new Campground(req.body.campground)
     await campground.save();
     res.redirect(`/campgrounds/${campground._id}`)
