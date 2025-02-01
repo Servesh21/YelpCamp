@@ -4,7 +4,8 @@ const ExpressError =require('./utilities/ExpressError');
 const catchasync=require('./utilities/catchasync');
 const ejsMate = require('ejs-mate');
 const Joi = require('joi');
-const {CampgroundSchema} = require('./schemas')
+const {CampgroundSchema , reviewSchema} = require('./schemas')
+const Review = require('./models/reviews')
 
 const app = express();
 const path=require('path');
@@ -42,6 +43,16 @@ const validatecampground= (req,res,next)=>{
        }
 }
 
+const validateReview = (req, res, next) => {
+    const { error } = reviewSchema.validate(req.body);
+    if (error) {
+        const msg = error.details.map(el => el.message).join(',');
+        throw new ExpressError(msg, 400);
+    } else {
+        next();
+    }
+};
+
 app.get('/',(req,res)=>{
     res.send("home")
 })
@@ -69,7 +80,7 @@ app.post('/campgrounds',validatecampground,catchasync(async (req,res,next)=>{
 /*  Page to display Campgrounds */
 app.get('/campgrounds/:id',catchasync(async (req,res)=>{
     
-    const campground = await Campground.findById(req.params.id);
+    const campground = await Campground.findById(req.params.id).populate('reviews');
     res.render('campgrounds/show',{campground});
 }))
 
@@ -90,7 +101,24 @@ app.delete('/campgrounds/:id',catchasync(async (req,res)=>{
     res.redirect('/campgrounds');
 }))
 
-app.all('/(.*)/',(req,res,next)=>{
+app.post('/campgrounds/:id/reviews', validateReview,catchasync(async(req,res)=>{
+   
+    const campground=await Campground.findById(req.params.id);
+    const review = new Review(req.body.review);
+    campground.reviews.push(review);
+    await review.save();
+    await campground.save();
+    res.redirect(`/campgrounds/${campground.id}`);
+
+}))
+app.delete('/campgrounds/:id/reviews/:reviewId',catchasync(async (req,res,next)=>{
+    const id = req.params.id;
+    const reviewId = req.params.reviewId
+    await Campground.findByIdAndUpdate(id,{$pull: {reviews: reviewId}})
+    await Review.findByIdAndDelete(reviewId);
+    res.redirect(`/campgrounds/${id}`);
+}))
+app.all('/*/',(req,res,next)=>{
     next(new ExpressError(404,'Page Not Found'))
 })
 
