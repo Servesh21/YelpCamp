@@ -69,7 +69,7 @@ passport.deserializeUser(User.deserializeUser());
 
 app.use((req,res,next)=>{
     // console.log("Current User:", req.user);
-    console.log(req.session)
+    // console.log(req.ses67a51328857c202346989262sion)
     res.locals.currentUser = req.user;
     res.locals.success=req.flash('success');
     res.locals.error=req.flash('error');

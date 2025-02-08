@@ -7,17 +7,9 @@ const {CampgroundSchema } = require('../schemas')
 const ExpressError =require('../utilities/ExpressError');
 const catchasync=require('../utilities/catchasync');
 const Review = require('../models/reviews');
-const {isLoggedIn} = require('../middleware')
-const validatecampground= (req,res,next)=>{
-        
-       const {error} = CampgroundSchema.validate(req.body);
-       if(error){
-        const msg = error.details.map(el=>el.message).join(',');
-            throw new ExpressError(msg,400);
-       }else{
-        next();
-       }
-}
+const {isLoggedIn,isAuthor,validatecampground} = require('../middleware')
+
+
 
 router.get('/',catchasync(async (req,res)=>{ 
     const camps= await Campground.find({});
@@ -35,6 +27,7 @@ router.post('/',isLoggedIn,validatecampground,catchasync(async (req,res,next)=>{
    // if(!req.body.campground) throw new ExpressError(400,'Invalid Campground data')
 
     const campground = new Campground(req.body.campground)
+    campground.author = req.user._id
     await campground.save();
     req.flash('success','Successfully created a Campground')
     res.redirect(`/campgrounds/${campground._id}`)
@@ -43,32 +36,48 @@ router.post('/',isLoggedIn,validatecampground,catchasync(async (req,res,next)=>{
 /*  Page to display Campgrounds */
 router.get('/:id',catchasync(async (req,res)=>{
     
-    const campground = await Campground.findById(req.params.id).populate('reviews');
-    if(!campground){
-        req.flash('error',"Couldn't find the campground");
-        return res.redirect('/campgrounds')
-    }
+    const campground = await Campground.findById(req.params.id)
+    .populate({
+        path: 'reviews',
+        populate: { path: 'author' } // Ensure author is populated inside reviews
+    })
+    .populate('author'); // Populate campground's author too
+
     res.render('campgrounds/show',{campground});
 }))
 
-router.get('/:id/edit',catchasync(async (req,res)=>{
-    const campground = await Campground.findById(req.params.id);
+router.get('/:id/edit',isLoggedIn,isAuthor,catchasync(async (req,res)=>{
+    const {id } = req.params;
+    const campground = await Campground.findById(id);
     if(!campground){
-        req.flash('error',"Couldn't find the campground");
-        return res.redirect('/campgrounds')
-    }
+        req.flash('error','Cannot find the desired campground');
+        res.redirect('/campgrounds');
+    } 
+    // if(!campground.author.equals(req.user._id)){
+    //     req.flash('error',"You do not have permission to do that");
+    //     // return res.redirect(`/campgrounds/${id}`);
+    // }
     res.render('campgrounds/edit',{campground})
 })
 )
-router.put('/:id',isLoggedIn,validatecampground,catchasync(async (req,res)=>{
+router.put('/:id',isAuthor,isLoggedIn,validatecampground,catchasync(async (req,res)=>{
     const {id} = req.params
-    const campground = await Campground.findByIdAndUpdate(id,{...req.body.campground})
-    req.flash('success',`successfully updated ${campground.title}`)
-    res.redirect(`/campgrounds//${campground._id}`)
+    const campground = await Campground.findById(id);
+    if(!campground){
+        req.flash('error','Cannot find the desired campground');
+        res.redirect('/campgrounds');
+    }
+        const camp = await Campground.findByIdAndUpdate(id,{...req.body.campground})
+        req.flash('success',`successfully updated ${campground.title}`)
+        res.redirect(`/campgrounds//${campground._id}`)
+    
+
 }))
 
-router.delete('/:id',isLoggedIn,catchasync(async (req,res)=>{
+router.delete('/:id',isAuthor,isLoggedIn,catchasync(async (req,res)=>{
     const {id}= req.params;
+    const campground = await Campground.findById(id);
+
     await Campground.findByIdAndDelete(id);
     req.flash('success','successfully deleted a campground')
     res.redirect('/campgrounds');
