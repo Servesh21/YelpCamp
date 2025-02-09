@@ -1,9 +1,9 @@
+if (process.env.NODE_ENV !== "production") {
+    require('dotenv').config();
+}
 const express = require('express')
 const methodOverride = require('method-override')
-const ExpressError =require('./utilities/ExpressError');
-const catchasync=require('./utilities/catchasync');
 const ejsMate = require('ejs-mate');
-const Joi = require('joi');
 const CampgroundsRoutes= require('./routes/campground')
 const reviewsRoutes = require('./routes/reviews')
 const session = require('express-session')
@@ -16,7 +16,6 @@ const usersRoutes = require('./routes/users')
 const app = express();
 const path=require('path');
 const mongoose = require('mongoose');
-const Campground = require('./models/campground');
 
 
 
@@ -97,9 +96,12 @@ app.all('(./*/)',(req,res,next)=>{
 app.use((err,req,res,next)=>{
     const {statuscode =500,}=err;
     if(!err.message) err.message = 'Oh No , Something Went Wrong';
+    // console.log(err)
     res.status(statuscode).render('error',{err})
 })
 
 app.listen(5500,()=>{
     console.log("Working on port 5500")
+
+    // console.log(process.env.CLOUDINARY_CLOUD_NAME,process.env.CLOUDINARY_KEY)
 })
