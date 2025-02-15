@@ -7,18 +7,24 @@ const ejsMate = require('ejs-mate');
 const CampgroundsRoutes= require('./routes/campground')
 const reviewsRoutes = require('./routes/reviews')
 const session = require('express-session')
+const helmet = require('helmet')
 const flash = require('connect-flash');
 const passport = require('passport')
 const LocalStrategy = require('passport-local');
 const User = require('./models/user')
 const usersRoutes = require('./routes/users')
+const db_url = process.env.DB_Url;
+const MongoStore = require('connect-mongo');
+
+
+const mongoSanitize = require('express-mongo-sanitize')
 
 const app = express();
 const path=require('path');
 const mongoose = require('mongoose');
 
 
-
+const dbUrl = 'mongodb://127.0.0.1:27017/yelp-camp'
 mongoose.connect('mongodb://127.0.0.1:27017/yelp-camp');
 
 const db=mongoose.connection;
@@ -28,22 +34,31 @@ db.once("open",()=>{
 
 })
 
-
 app.set('view engine','ejs');
 app.engine('ejs',ejsMate)
 app.set('views',path.join(__dirname,'views'))
 app.use(express.urlencoded({
     extended: true
 }))
+app.use(mongoSanitize())
 
 
+const store = MongoStore.create({
+    mongoUrl: dbUrl,
+    touchAfter: 24 * 60 * 60,
+    crypto: {
+        secret: 'thisshouldbeabettersecret!'
+    }
+});
 const sessionsConfig = {
-
+    store,
+    name:'session',
     secret: 'thiscouldbeabettersession',
     resave:false,
     saveUninitialized: true,
     cookie:{
         httpOnly: true,
+        //secure:true,
         expries: Date.now() + 1000*60*60*24*7,
         maxAge: 1000*60*60*24*7
     }
@@ -51,13 +66,56 @@ const sessionsConfig = {
 
 app.use(methodOverride('_method'))
 
-app.get('/',(req,res)=>{
-    res.send("home")
-})
+
 
 app.use(session(sessionsConfig));
 app.use(flash());
+app.use(helmet());
 
+const scriptSrcUrls = [
+    "https://stackpath.bootstrapcdn.com/",
+ 
+    "https://kit.fontawesome.com/",
+    "https://cdnjs.cloudflare.com/",
+    "https://cdn.jsdelivr.net",
+    "https://cdn.maptiler.com/", // add this
+];
+const styleSrcUrls = [
+    "https://kit-free.fontawesome.com/",
+    "https://stackpath.bootstrapcdn.com/",
+
+    "https://fonts.googleapis.com/",
+    "https://use.fontawesome.com/",
+    "https://cdn.jsdelivr.net",
+    "https://cdn.maptiler.com/", // add this
+];
+const connectSrcUrls = [
+
+    "https://api.maptiler.com/", // add this
+];
+
+const fontSrcUrls = [];
+app.use(
+    helmet.contentSecurityPolicy({
+        directives: {
+            defaultSrc: [],
+            connectSrc: ["'self'", ...connectSrcUrls],
+            scriptSrc: ["'unsafe-inline'", "'self'", ...scriptSrcUrls],
+            styleSrc: ["'self'", "'unsafe-inline'", ...styleSrcUrls],
+            workerSrc: ["'self'", "blob:"],
+            objectSrc: [],
+            imgSrc: [
+                "'self'",
+                "blob:",
+                "data:",
+                "https://res.cloudinary.com/dv3lobczw/", //SHOULD MATCH YOUR CLOUDINARY ACCOUNT! 
+                "https://images.unsplash.com/",
+                "https://api.maptiler.com/",
+            ],
+            fontSrc: ["'self'", ...fontSrcUrls],
+        },
+    })
+);
 
 
 app.use(passport.initialize());
@@ -73,6 +131,9 @@ app.use((req,res,next)=>{
     res.locals.success=req.flash('success');
     res.locals.error=req.flash('error');
     next();
+})
+app.get('/',(req,res)=>{
+    res.render('home')
 })
 
 app.use('/campgrounds',CampgroundsRoutes);

@@ -1,17 +1,19 @@
 
     maptilersdk.config.apiKey = maptilerApiKey;
     var map = new maptilersdk.Map({
-        container: 'map',
-        zoom: 0.3,
-        center: [0, 20],
+        container: 'cluster-map',
+        zoom: 2.4,
+        center: [-103.59179687498357, 40.66995747013945],
         style: maptilersdk.MapStyle.DATAVIZ.DARK
     });
 
+
+
       map.on('load', function () {
         // add a clustered GeoJSON source for a sample set of earthquakes
-        map.addSource('earthquakes', {
+        map.addSource('campground', {
           'type': 'geojson',
-          'data': 'https://docs.maptiler.com/sdk-js/assets/earthquakes.geojson',
+          'data': campground,
           cluster: true,
           clusterMaxZoom: 14, // Max zoom to cluster points on
           clusterRadius: 50 // Radius of each cluster when clustering points (defaults to 50)
@@ -20,7 +22,7 @@
         map.addLayer({
           id: 'clusters',
           type: 'circle',
-          source: 'earthquakes',
+          source: 'campground',
           filter: ['has', 'point_count'],
           paint: {
             // Use step expressions (https://docs.maptiler.com/gl-style-specification/expressions/#step)
@@ -52,7 +54,7 @@
         map.addLayer({
           id: 'cluster-count',
           type: 'symbol',
-          source: 'earthquakes',
+          source: 'campground',
           filter: ['has', 'point_count'],
           layout: {
             'text-field': '{point_count_abbreviated}',
@@ -64,7 +66,7 @@
         map.addLayer({
           id: 'unclustered-point',
           type: 'circle',
-          source: 'earthquakes',
+          source: 'campground',
           filter: ['!', ['has', 'point_count']],
           paint: {
             'circle-color': '#11b4da',
@@ -80,7 +82,7 @@
             layers: ['clusters']
           });
           const clusterId = features[0].properties.cluster_id;
-          const zoom = await map.getSource('earthquakes').getClusterExpansionZoom(clusterId);
+          const zoom = await map.getSource('campground').getClusterExpansionZoom(clusterId);
           map.easeTo({
             center: features[0].geometry.coordinates,
             zoom
@@ -92,15 +94,10 @@
         // the location of the feature, with
         // description HTML from its properties.
         map.on('click', 'unclustered-point', function (e) {
+          const text = e.features[0].properties.popUpMarkup
           var coordinates = e.features[0].geometry.coordinates.slice();
-          var mag = e.features[0].properties.mag;
-          var tsunami;
 
-          if (e.features[0].properties.tsunami === 1) {
-            tsunami = 'yes';
-          } else {
-            tsunami = 'no';
-          }
+
 
           // Ensure that if the map is zoomed out such that
           // multiple copies of the feature are visible, the
@@ -112,7 +109,7 @@
           new maptilersdk.Popup()
             .setLngLat(coordinates)
             .setHTML(
-              'magnitude: ' + mag + '<br>Was there a tsunami?: ' + tsunami
+              text
             )
             .addTo(map);
         });
